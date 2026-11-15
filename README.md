@@ -58,6 +58,12 @@ first, or use the **Door button** entity.
 Copy `custom_components/orbit_gdo` into your Home Assistant `config/custom_components/`
 directory and restart.
 
+## Community and support
+
+- **Discussion:** [Home Assistant Community forum thread](https://community.home-assistant.io/t/skylink-orbit-wi-fi-garage-door-opener-custom-integration-marketplace/1034662)
+- **Bugs:** [open an issue](https://github.com/joesilva101/ha-orbit/issues). Include your
+  hub model, its firmware, and a diagnostics download from the device page.
+
 ## Development
 
 ```bash
