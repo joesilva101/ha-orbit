@@ -61,7 +61,7 @@ def test_parse_full_hub():
     assert d.wifi_rssi == -79
     assert d.wifi_ssid == "MyWifi"
     assert d.firmware == "WF2012021040204"
-    assert d.autoclose_enabled is False
+    assert d.autoclose_pending is False
     assert d.door_sensor is None
     assert d.has_light is True
     assert d.timezone == "America/New_York"
@@ -70,7 +70,7 @@ def test_parse_full_hub():
 
 def test_hub_without_autoclose_field():
     hub = {**HUB, "reported": {"mdev": {"door": 4, "rssi": -46}}}
-    assert OrbitDevice.from_dict(hub).autoclose_enabled is None
+    assert OrbitDevice.from_dict(hub).autoclose_pending is None
 
 
 def test_merge_sequence_tracks_motion():
@@ -81,7 +81,7 @@ def test_merge_sequence_tracks_motion():
     d = d.merged_with(_push(2, autoclose=1))
     assert d.door_state is DoorState.STOPPED
     assert d.last_motion is DoorState.OPENING
-    assert d.autoclose_enabled is True
+    assert d.autoclose_pending is True
     d = d.merged_with(_push(3))
     assert d.last_motion is DoorState.CLOSING
     d = d.merged_with(_push(4))
@@ -94,6 +94,27 @@ def test_merge_does_not_mutate_original():
     d = OrbitDevice.from_dict(HUB)
     d.merged_with(_push(0))
     assert d.door_state is DoorState.CLOSED
+
+
+def test_lockout_and_error_code():
+    """Captured: wall console lockout on -> lockrf 1 + errno 4, then back."""
+    d = OrbitDevice.from_dict(HUB)
+    assert d.remote_lockout is None and d.error_code is None  # not yet reported
+    d = d.merged_with({"hub_id": "AbC12xYz", "reported": {"mdev": {"lockrf": 1}}})
+    d = d.merged_with({"hub_id": "AbC12xYz", "reported": {"mdev": {"errno": 4}}})
+    assert d.remote_lockout is True and d.error_code == 4
+    d = d.merged_with(
+        {"hub_id": "AbC12xYz", "reported": {"mdev": {"lockrf": 0, "errno": 0}}}
+    )
+    assert d.remote_lockout is False and d.error_code == 0
+
+
+def test_link_online_push():
+    """Captured: offline/online arrives as reported.link.online, not "online"."""
+    d = OrbitDevice.from_dict(HUB)
+    d = d.merged_with({"hub_id": "AbC12xYz", "reported": {"link": {"online": False}}})
+    assert d.online is False
+    assert d.door_state is OrbitDevice.from_dict(HUB).door_state  # untouched
 
 
 def test_door_sensor_status():

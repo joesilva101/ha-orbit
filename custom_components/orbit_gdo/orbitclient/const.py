@@ -60,7 +60,35 @@ TOPIC_DESIRE = TOPIC_BASE + "/desire"
 #: Momentary "wall button" press. Observed cycle on real hardware:
 #: closed -> opening -> (press) stopped -> (press) closing -> closed, i.e. from
 #: "stopped" the door reverses its previous direction of travel.
+#:
+#: A remote (app/cloud) press that would close the door (fully open, or stopped
+#: part-way after opening) does not close it at once: the opener beeps and
+#: flashes for ~10 s (``autoclose_en`` = 1), then closes. A second remote press
+#: during that warning CANCELS the close and the door stays where it is. (A
+#: wireless remote press cancels it too; a wall press skips the rest and closes
+#: at once.)
 CTRL_PRESS = 0
+#: How long after a remote press on an open door its close warning is treated
+#: as running. Observed: ~10.8 s from the press to the door reporting
+#: "closing"; the door leaving OPEN ends it sooner.
+CLOSE_WARNING_WINDOW = 15.0
+#: Reversing a moving door takes two presses (stop, then reverse). The hub
+#: reports "stopped" ~0.8 s after the first; if it hasn't within this long,
+#: the second press is not sent.
+STOP_CONFIRM_TIMEOUT = 5.0
+#: ``reported.link.online`` pushes are immediate, but the ``online`` flag in
+#: the full device list lags them by minutes (observed 2-4 min). For this long
+#: after a push, the pushed value wins over the device list.
+LINK_PUSH_TRUST = 600.0
+
+# ---- Error codes (reported.mdev.errno) ----------------------------------------
+
+#: Set while the wall console lockout is on (with ``lockrf`` = 1).
+ERRNO_LOCKOUT = 4
+#: The photo-eye (light curtain) was blocked, so the opener refused to close:
+#: the door reports "closing" for ~5 s, then "open", with this code for 5-17 s.
+#: A reversal mid-travel (photo-eye or obstruction) reports no error code.
+ERRNO_SAFETY_REFUSAL = 7
 #: Light on/off - explicit (idempotent) commands, both confirmed on hardware.
 #: GDO hubs do not report light state, so it cannot be read back (and the wall
 #: console's single light button toggles it without telling the cloud).

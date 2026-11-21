@@ -6,12 +6,13 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER
+from .const import CONF_RESPECT_LOCKOUT, DOMAIN, MANUFACTURER
 from .coordinator import OrbitConfigEntry, OrbitDataUpdateCoordinator
 from .orbitclient import OrbitDevice
 
@@ -73,3 +74,19 @@ class OrbitEntity(CoordinatorEntity[OrbitDataUpdateCoordinator]):
     def available(self) -> bool:
         device = self.device
         return super().available and device is not None and device.online
+
+    def _raise_if_locked_out(self) -> None:
+        """Refuse a door-moving command while the lockout is on, if opted in.
+
+        Stop is never refused: stopping a moving door must always work.
+        """
+        device = self.device
+        if (
+            device is not None
+            and device.remote_lockout
+            and self.coordinator.config_entry.options.get(CONF_RESPECT_LOCKOUT, False)
+        ):
+            raise HomeAssistantError(
+                "Orbit: the wall console lockout is on (turn it off at the wall "
+                "console, or disable 'Respect lockout' in the integration options)"
+            )

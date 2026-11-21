@@ -7,11 +7,17 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_PASSWORD
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_EMAIL, DOMAIN
+from .const import CONF_EMAIL, CONF_RESPECT_LOCKOUT, DOMAIN
 from .orbitclient import OrbitAuthError, OrbitClient, OrbitError
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +43,11 @@ class OrbitConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the UI-driven setup."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OrbitOptionsFlow:
+        return OrbitOptionsFlow()
 
     async def _try(self, data: Mapping[str, Any], errors: dict[str, str]) -> str | None:
         try:
@@ -97,4 +108,22 @@ class OrbitConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+
+class OrbitOptionsFlow(OptionsFlow):
+    """Integration options. Read at command time, so no reload is needed."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current = self.config_entry.options.get(CONF_RESPECT_LOCKOUT, False)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_RESPECT_LOCKOUT, default=current): bool}
+            ),
         )

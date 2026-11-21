@@ -63,7 +63,28 @@ class OrbitCover(OrbitEntity, CoverEntity):
 
     @property
     def is_closing(self) -> bool:
-        return bool(self.device and self.device.door_state is DoorState.CLOSING)
+        # Also during the ~10 s warning before a remote close: the door hasn't
+        # moved yet, but it is about to (the app shows an hourglass). The card
+        # then disables Close (no accidental second press, which would cancel)
+        # and keeps Stop, which cancels the close.
+        device = self.device
+        return bool(
+            device
+            and (
+                device.door_state is DoorState.CLOSING
+                or self.coordinator.client.close_warning_active(self._device_id)
+            )
+        )
+
+    @property
+    def current_cover_position(self) -> int | None:
+        # Only to tell the card a stopped door is part-way: without a position
+        # HA shows it as plain "open" and disables the Open button. 50 is not
+        # a measurement (the hub reports no position).
+        device = self.device
+        if device is not None and device.door_state is DoorState.STOPPED:
+            return 50
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -73,9 +94,11 @@ class OrbitCover(OrbitEntity, CoverEntity):
         return {"partially_open": device.door_state is DoorState.STOPPED}
 
     async def async_open_cover(self, **kwargs: Any) -> None:
+        self._raise_if_locked_out()
         await self._command(self.coordinator.client.async_open_door)
 
     async def async_close_cover(self, **kwargs: Any) -> None:
+        self._raise_if_locked_out()
         await self._command(self.coordinator.client.async_close_door)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
