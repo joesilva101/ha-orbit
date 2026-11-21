@@ -8,6 +8,7 @@ Orbit cloud sends over MQTT. A real hub object looks like::
       "online": true, "timezone_id": "America/New_York",
       "reported": {
         "mdev": {"door": 4, "rssi": -79, "ssid": "...", "autoclose_en": 0,
+                 "lockrf": 0, "errno": 0,
                  "firstdoor": {"door": 4}, "fw": {"type": "1", "ver": "WF..."}},
         "sdev": {"appliance": [], "sensor": []}
       }
@@ -86,7 +87,16 @@ class OrbitDevice:
     #: STOPPED reverses this, so it decides what "open"/"close" must do.
     last_motion: DoorState | None = None
     door_sensor: DoorSensorStatus | None = None
-    autoclose_enabled: bool | None = None
+    #: ``autoclose_en``: an automatic close is counting down. On for the whole
+    #: timer-to-close countdown (set on the wall console; the setting itself is
+    #: never reported), or for the ~10 s warning before a remote (app/HA) close.
+    autoclose_pending: bool | None = None
+    #: ``lockrf``: the wall console lockout is on. It blocks the RF remotes only;
+    #: app (and so Home Assistant) commands still work.
+    remote_lockout: bool | None = None
+    #: ``errno``: opener error code. 0 = none, 4 = lockout on, 7 = a close
+    #: refused because the photo-eye was blocked (see ``const.ERRNO_*``).
+    error_code: int | None = None
     wifi_rssi: int | None = None
     wifi_ssid: str | None = None
     firmware: str | None = None
@@ -127,6 +137,11 @@ class OrbitDevice:
         if not isinstance(reported, dict):
             return self
         self.reported = {**self.reported, **reported}
+        # Online/offline pushes come as reported.link.online (the full device
+        # list carries a top-level "online" instead, which lags).
+        link = reported.get("link")
+        if isinstance(link, dict) and "online" in link:
+            self.online = bool(link["online"])
         mdev = reported.get("mdev")
         if not isinstance(mdev, dict):
             return self
@@ -141,7 +156,11 @@ class OrbitDevice:
         if mdev.get("ssid"):
             self.wifi_ssid = str(mdev["ssid"])
         if "autoclose_en" in mdev:
-            self.autoclose_enabled = _as_optional_bool(mdev["autoclose_en"])
+            self.autoclose_pending = _as_optional_bool(mdev["autoclose_en"])
+        if "lockrf" in mdev:
+            self.remote_lockout = _as_optional_bool(mdev["lockrf"])
+        if "errno" in mdev:
+            self.error_code = _as_optional_int(mdev["errno"])
         fw = mdev.get("fw")
         if isinstance(fw, dict) and (fw.get("ver") or fw.get("ver_gdo")):
             self.firmware = str(fw.get("ver") or fw.get("ver_gdo"))

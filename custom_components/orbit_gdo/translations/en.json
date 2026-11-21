@@ -29,6 +29,19 @@
       "wrong_account": "These credentials belong to a different Orbit account."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Orbit options",
+        "data": {
+          "respect_lockout": "Respect the wall console lockout"
+        },
+        "data_description": {
+          "respect_lockout": "The lockout normally blocks only the wireless remotes; the phone app and Home Assistant can still open the door. Turn this on to make Home Assistant refuse to open or close the door while the lockout is on. Stop always works."
+        }
+      }
+    }
+  },
   "entity": {
     "button": {
       "door_button": {
@@ -44,6 +57,12 @@
       },
       "door_sensor_problem": {
         "name": "Door sensor"
+      },
+      "remote_lockout": {
+        "name": "Remote lockout"
+      },
+      "close_refused": {
+        "name": "Close refused"
       }
     },
     "light": {

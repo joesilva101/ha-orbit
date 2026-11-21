@@ -1,4 +1,4 @@
-"""Binary sensors for Orbit hubs (connectivity, door sensor, auto-close)."""
+"""Binary sensors for Orbit hubs (connectivity, auto-close, lockout, safety)."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .coordinator import OrbitConfigEntry, OrbitDataUpdateCoordinator
 from .entity import OrbitEntity, async_add_entities_when_present
 from .orbitclient import DoorSensorStatus, OrbitDevice
+from .orbitclient.const import ERRNO_SAFETY_REFUSAL
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -38,11 +39,30 @@ SENSORS: tuple[OrbitBinarySensorDescription, ...] = (
         exists_fn=lambda _d: True,
     ),
     OrbitBinarySensorDescription(
+        # On while an automatic close counts down: the wall console's
+        # timer-to-close, or the ~10 s warning before an app/HA close.
         key="autoclose",
         translation_key="autoclose",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda d: d.autoclose_enabled,
-        exists_fn=lambda d: d.autoclose_enabled is not None,
+        value_fn=lambda d: d.autoclose_pending,
+        exists_fn=lambda d: d.autoclose_pending is not None,
+    ),
+    OrbitBinarySensorDescription(
+        # Wall console lockout: blocks the wireless remotes (not the app/HA).
+        # Hubs only report it once it has been used, so it may appear later.
+        key="remote_lockout",
+        translation_key="remote_lockout",
+        value_fn=lambda d: d.remote_lockout,
+        exists_fn=lambda d: d.remote_lockout is not None,
+    ),
+    OrbitBinarySensorDescription(
+        # On for 5-17 s after the opener refuses to close because the
+        # photo-eye is blocked. (A reversal mid-travel is not reported.)
+        key="close_refused",
+        translation_key="close_refused",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda d: d.error_code == ERRNO_SAFETY_REFUSAL,
+        exists_fn=lambda d: d.error_code is not None,
     ),
     OrbitBinarySensorDescription(
         key="door_sensor_battery",

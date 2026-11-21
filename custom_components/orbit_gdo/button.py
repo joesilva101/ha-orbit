@@ -59,6 +59,7 @@ class OrbitButton(OrbitEntity, ButtonEntity):
         self._attr_unique_id = f"{device_id}_{description.key}"
 
     async def async_press(self) -> None:
+        self._raise_if_locked_out()
         try:
             await self.entity_description.press_fn(
                 self.coordinator.client, self._device_id
